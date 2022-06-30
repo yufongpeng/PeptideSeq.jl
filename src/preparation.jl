@@ -1,5 +1,39 @@
 # Digestion and modification
 
+"""
+    modify!(protein, modification...)
+
+Modify an intact protein or digested protein.
+Modification must be a key of `MODIFICATION_SITE` or it will be ignored.
+See object `MODIFICATION_SITE` for available modifications.
+Currently, "3NPH" is supported.
+"""
+function modify!(protein::Protein, modification::String...)
+    # If digestion had been done, add mass to each peptides
+    if CONFIG["ACCURATE"]
+        modification_ms = first(MODIFICATION_MS)
+    else
+        modification_ms = last(MODIFICATION_MS)
+    end
+    isempty(protein.peptides) || return _modify_mass!(protein, modification...)
+
+    for k in modification
+        haskey(modification_ms, k) || continue
+        locs = Int[]
+        for loc in modification_ms[k]
+            if loc == "^"
+                push!(locs, 1)
+            elseif loc == "\$"
+                push!(locs, length(protein.origin))
+            else
+                append!(locs, findall(==(first(loc)), protein.origin))
+            end
+        end
+        protein.modification[k] = locs
+    end
+    protein
+end
+
 function modify!(protein::Protein, modification::Dict{String, Vector{Int}})
     for (k, v) in modification
         protein.modification[k] = sort!(union!(get(protein.modification, k, Int[]), v))
@@ -46,32 +80,6 @@ function _modify_mass!(protein::Protein, modification::String...)
     protein
 end
 
-function modify!(protein::Protein, modification::String...)
-    # If digestion had been done, add mass to each peptides
-    if CONFIG["ACCURATE"]
-        modification_ms = first(MODIFICATION_MS)
-    else
-        modification_ms = last(MODIFICATION_MS)
-    end
-    isempty(protein.peptides) || return _modify_mass!(protein, modification...)
-
-    for k in modification
-        haskey(modification_ms, k) || continue
-        locs = Int[]
-        for loc in modification_ms[k]
-            if loc == "^"
-                push!(locs, 1)
-            elseif loc == "\$"
-                push!(locs, length(protein.origin))
-            else
-                append!(locs, findall(==(first(loc)), protein.origin))
-            end
-        end
-        protein.modification[k] = locs
-    end
-    protein
-end
-
 function full_digestion(sequence::AbstractString, enzyme::String)
     regex = ENZYME[enzyme]
     cleavage_sites = mapreduce(union, regex) do rs
@@ -97,6 +105,14 @@ function merge_modification(modifications)
     new
 end
 
+"""
+    digest!(protein, n_miss, enzyme = "")
+
+Digest a protein with an enzyme.
+`n_miss` is the allowed number of miss cleavage.
+If `protein.enzyme` is an empty string, `enzyme` must be provided.
+See object `ENZYME` for available enzymes.
+"""
 function digest!(protein::Protein, n_miss::Int, enzyme::String = "")
     if CONFIG["ACCURATE"]
         aa_ms = first(AA_MS)

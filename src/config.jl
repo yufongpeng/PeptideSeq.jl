@@ -66,27 +66,13 @@ const ADD_MS = (
     )  
 )
 
-const MODIFICATION_SITE = Dict{String, Vector{String}}()
+const MODIFICATION_SITE = Dict{String, Vector{String}}("3NPH" => ["D", "E", "\$"])
 
 const MODIFICATION_MS = (
-    Dict{String, Float64}(),
-    Dict{String, Float64}()
+    Dict{String, Float64}("3NPH" => 135.043262),
+    Dict{String, Float64}("3NPH" => 135.12472)
 )
 
-
-for m in CSV.Rows("src/config/MODIFICATION.tsv", delim = "\t")
-    push!(MODIFICATION_MS[1], m[1] => parse(Float64, m[2]))
-    push!(MODIFICATION_MS[2], m[1] => parse(Float64, m[3]))
-    push!(MODIFICATION_SITE, m[1] => [loc for loc in getindex.(Ref(m), 4:length(m)) if !ismissing(loc)])
-end
-
-const ENZYME = Dict{String, Vector{Regex}}()
-
-for e in CSV.Rows("src/config/ENZYME.tsv", delim = "\t")
-    push!(ENZYME,  e[1] => [eval(Meta.parse(r)) for r in getindex.(Ref(e), 2:length(e)) if !ismissing(r)])
-end
-
-#=
 const ENZYME = Dict(
     "Trypsin" => [r"[K, R][^P]"],                           # R/KX, X≠P
     "Trypsin(low specificity)" =>  [r"[K, R]."],            # R/KX
@@ -110,7 +96,7 @@ const ENZYME = Dict(
     "Trypsin/Chymotrypsin" => [r"[F, Y, W, L, X, K, R][^P]"],
     "MAFA" => [r"D."]  # DX
 )
-=#
+
 const ADDUCT_FN = (
     Dict(
         "[M]" => identity,

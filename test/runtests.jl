@@ -13,6 +13,6 @@ using Test
     ionize!(p2, "[M+H]+", "[M+2H]2+")
     fragmentation(p1.peptides[1])
     fragmentation(p2.peptides[1])
-    fragmentation(p1.peptides[2])
-    fragmentation(p2.peptides[2])
+    fragmentation(p1.peptides[2]; charge_state = [1])
+    fragmentation(p2.peptides[2]; charge_state = [1, 2])
 end

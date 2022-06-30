@@ -3,10 +3,10 @@
 [![Build Status](https://github.com/yufongpeng/PeptideSeq.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/yufongpeng/PeptideSeq.jl/actions/workflows/CI.yml?query=branch%3Amain)
 [![Coverage](https://codecov.io/gh/yufongpeng/PeptideSeq.jl/branch/main/graph/badge.svg)](https://codecov.io/gh/yufongpeng/PeptideSeq.jl)
 
-*PeptideSeq.jl* is a julia package for predicting digested peptide sequence, adding modification and generating expected fragments in mass spectrometry. 
+*PeptideSeq.jl* is a julia package for predicting peptide sequence after digestion, adding modification and generating expected fragments in mass spectrometry. Digestion enzyme and modification can be customized.
 
 ## Installation
-This package is not yet registered. Insall it through github:
+This package is not registered yet. Insall it through github:
 ```julia
 julia> using Pkg; Pkg.add("https://github.com/yufongpeng/PeptideSeq.jl")
 ```

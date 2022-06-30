@@ -1,5 +1,11 @@
 # Function related mass spectrometry
 
+"""
+    ionize!(protein, adducts...)
+
+Ionize the peptides as the `adducts`.
+Available adducts are "[M]", "[M+H]+", "[M+2H]2+", "[M-H]-", "[M-2H]2-".
+"""
 function ionize!(protein::Protein, adducts::String...)
     if CONFIG["ACCURATE"]
         adduct_fn = first(ADDUCT_FN)
@@ -25,6 +31,13 @@ end
 # y: +H             => +H2O             / peptide - b
 # z: -NH2           => -NH3 + H2O       / peptide - c
 
+"""
+    fragmentation(peptide; ion_type = [:b, :y], charge_state = :auto)
+
+Fragmentation of a peptide.
+`ion_type` is the type of fragments. It can be an vector containing :a, :b, :c, :x, :y, :z. The default is [:b, :c] which are major fragments in CID or HCD.
+`charge_state` determines the number of charges on the fragments. It can be a vector containing integers or a symbol. The default is `:auto` which means that doulbly charged fragments will be included for fragments containing more than 5 amino acids.
+"""
 function fragmentation(peptide::Peptide; ion_type = [:b, :y], charge_state = :auto)
     if CONFIG["ACCURATE"]
         aa_ms = first(AA_MS)
@@ -80,10 +93,10 @@ function _charge_fragments(neutral_fragments::Dict{Symbol, Vector{Float64}}, cha
     id = 1
     for ion in ion_type 
         for charge in charge_state 
+            charge = charge == 1 ? "" : "$charge"
+            adduct = "[M$(ion_mode)$(charge)H]$(charge)$(ion_mode)"
+            charge = UPPER_INDEX[charge * ion_mode]
             for (i, v) in enumerate(neutral_fragments[ion])
-                charge = charge == 1 ? "" : "$charge"
-                adduct = "[M$(ion_mode)$(charge)H]$(charge)$(ion_mode)"
-                charge = UPPER_INDEX[charge * ion_mode]
                 type[id] = String(ion) * Char(8320 + i) * charge
                 mass[id] = adduct_fn[adduct](v)
                 id += 1
