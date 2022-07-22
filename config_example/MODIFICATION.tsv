@@ -1,2 +1,9 @@
-Modification	Accurate Mass	Avearge Mass	Sites		
-3NPH	135.043262	135.12472	D	E	$
+Modification	Accurate Mass	Avearge Mass	Sites			
+3NPH	135.043262	135.12472	D	E	$	
+N-acetylation	42.010565	42.03672	K	^		
+methylation	14.01565	14.02705	K	R		
+O-Hex	162.052824	162.14072	S	T		
+O-HexNAc	203.079374	162.14072	S	T		
+hydroxylation	15.994915	15.999	K	P		
+phosphorylation	79.966333	79.97872	S	T	Y	H
+N-GlcNAc	203.079374	203.19472	"r""K[^P][S, T]"""			

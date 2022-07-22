@@ -9,19 +9,13 @@ See object `MODIFICATION_SITE` for available modifications.
 Currently, "3NPH" is supported.
 """
 function modify!(protein::Protein, modification::String...)
-    # If digestion had been done, add mass to each peptides
-    if CONFIG["ACCURATE"]
-        modification_ms = first(MODIFICATION_MS)
-    else
-        modification_ms = last(MODIFICATION_MS)
-    end
-    isempty(protein.peptides) || return _modify_mass!(protein, modification...)
-
     for k in modification
-        haskey(modification_ms, k) || continue
+        haskey(MODIFICATION_SITE, k) || continue
         locs = Int[]
-        for loc in modification_ms[k]
-            if loc == "^"
+        for loc in MODIFICATION_SITE[k]
+            if isa(loc, Regex)
+                append!(locs, locc.offset for locc in eachmatch(loc, protein.origin))
+            elseif loc == "^"
                 push!(locs, 1)
             elseif loc == "\$"
                 push!(locs, length(protein.origin))
@@ -31,7 +25,8 @@ function modify!(protein::Protein, modification::String...)
         end
         protein.modification[k] = locs
     end
-    protein
+    # If digestion had been done, add mass to each peptides
+    return isempty(protein.peptides) ? protein : _modify_mass!(protein, modification...)
 end
 
 function modify!(protein::Protein, modification::Dict{String, Vector{Int}})
@@ -50,20 +45,6 @@ function _modify_mass!(protein::Protein, modification::String...)
         aa_ms = last(AA_MS)
         di_ms = last(ADD_MS)["DI"]
         modification_ms = last(MODIFICATION_MS)
-    end
-
-    for k in modification
-        haskey(MODIFICATION_SITE, k) || continue
-        locs = Int[]
-        for loc in MODIFICATION_SITE[k]
-            append!(locs, findall(==(first(loc)), protein.origin))
-            if loc == "^"
-                push!(locs, 0)
-            elseif loc == "\$"
-                push!(locs, -1)
-            end
-        end
-        protein.modification[k] = locs
     end
 
     for (k, v) in protein.modification
@@ -125,7 +106,7 @@ function digest!(protein::Protein, n_miss::Int, enzyme::String = "")
     end
 
     if enzyme == ""
-        protein.enzyme != "" && throw(ArgumentError("Please provide enzyme!"))
+        protein.enzyme == "" && throw(ArgumentError("Please provide enzyme!"))
     else
         protein.enzyme = enzyme
     end

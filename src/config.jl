@@ -66,11 +66,38 @@ const ADD_MS = (
     )  
 )
 
-const MODIFICATION_SITE = Dict{String, Vector{String}}("3NPH" => ["D", "E", "\$"])
+const MODIFICATION_SITE = Dict{String, Vector{Any}}(
+    "3NPH" => ["D", "E", "\$"],
+    "N-acetylation" => ["K", "^"],
+    "methylation" => ["K", "R"],
+    "O-Hex" => ["S", "T"],
+    "O-HexNAc" => ["S", "T"],
+    "hydroxylation" => ["K", "P"],
+    "phosphorylation" => ["S", "T", "Y", "H"],
+    "N-GlcNAc" => [r"K[^P][S, T]"]
+    )
 
 const MODIFICATION_MS = (
-    Dict{String, Float64}("3NPH" => 135.043262),
-    Dict{String, Float64}("3NPH" => 135.12472)
+    Dict{String, Float64}(
+        "3NPH" => 135.043262,
+        "N-acetylation" => 42.010565,
+        "methylation" => 14.015650,
+        "O-Hex" => 162.052824,
+        "O-HexNAc" => 203.079374,
+        "hydroxylation" => 15.994915,
+        "phosphorylation" => 79.966333,
+        "N-GlcNAc" => 203.079374
+    ),
+    Dict{String, Float64}(
+        "3NPH" => 135.12472,
+        "N-acetylation" => 42.03672,
+        "methylation" => 14.02705,
+        "O-Hex" => 162.14072,
+        "O-HexNAc" => 203.19472,
+        "hydroxylation" => 15.999,
+        "phosphorylation" => 79.97872,
+        "N-GlcNAc" => 203.19472
+    )
 )
 
 const ENZYME = Dict(

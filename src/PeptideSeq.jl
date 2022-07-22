@@ -80,14 +80,14 @@ end
     add_modification!(source)
 
 Add custom modification. The first row is the header (can be empty), the first column is the name of modification, the second and third columns are addtional monoisotopic mass and average mass, respectively, and the other columns are the modification site. 
-^ repressents the N-terminal and \$ repressents the C-terminal.
+Modification sites can be string without quotation or regular expression like r"...". ^ repressents the N-terminal and \$ repressents the C-terminal. 
 See the example file "config_example/MODIFICATION.tsv".
 """
 function add_modification!(source)
     for m in CSV.Rows(source, delim = "\t")
         push!(MODIFICATION_MS[1], m[1] => parse(Float64, m[2]))
         push!(MODIFICATION_MS[2], m[1] => parse(Float64, m[3]))
-        push!(MODIFICATION_SITE, m[1] => [loc for loc in getindex.(Ref(m), 4:length(m)) if !ismissing(loc)])
+        push!(MODIFICATION_SITE, m[1] => [startwith(loc, "r") ? eval(Meta.parse(loc)) : loc for loc in getindex.(Ref(m), 4:length(m)) if !ismissing(loc)])
     end
 end
 

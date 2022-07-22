@@ -13,6 +13,8 @@ julia> using Pkg; Pkg.add("https://github.com/yufongpeng/PeptideSeq.jl")
 
 ## Example
 ```julia
+julia> using PeptideSeq
+
 julia> p = Protein("DPCHKPKRRKP")
 Protein:      DPCHKPKRRKP
 Modification: 
