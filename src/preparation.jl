@@ -37,15 +37,7 @@ function modify!(protein::Protein, modification::Dict{String, Vector{Int}})
 end
 
 function _modify_mass!(protein::Protein, modification::String...)
-    if CONFIG["ACCURATE"]
-        aa_ms = first(AA_MS)
-        di_ms = first(ADD_MS)["DI"]
-        modification_ms = first(MODIFICATION_MS)
-    else
-        aa_ms = last(AA_MS)
-        di_ms = last(ADD_MS)["DI"]
-        modification_ms = last(MODIFICATION_MS)
-    end
+    modification_ms = (CONFIG["ACCURATE"] ? first : last)(MODIFICATION_MS)
 
     for (k, v) in protein.modification
         for (i, pep) in enumerate(protein.peptides)
@@ -95,21 +87,11 @@ If `protein.enzyme` is an empty string, `enzyme` must be provided.
 See object `ENZYME` for available enzymes.
 """
 function digest!(protein::Protein, n_miss::Int, enzyme::String = "")
-    if CONFIG["ACCURATE"]
-        aa_ms = first(AA_MS)
-        di_ms = first(ADD_MS)["DI"]
-        modification_ms = first(MODIFICATION_MS)
-    else
-        aa_ms = last(AA_MS)
-        di_ms = last(ADD_MS)["DI"]
-        modification_ms = last(MODIFICATION_MS)
-    end
-
-    if enzyme == ""
-        protein.enzyme == "" && throw(ArgumentError("Please provide enzyme!"))
-    else
-        protein.enzyme = enzyme
-    end
+    fn = CONFIG["ACCURATE"] ? first : last
+    aa_ms = fn(AA_MS)
+    di_ms = fn(ADD_MS)["DI"]
+    modification_ms = fn(MODIFICATION_MS)
+    isempty(enzyme) ? (isempty(protein.enzyme) && throw(ArgumentError("Please provide enzyme!"))) : (protein.enzyme = enzyme)
 
     seq_id = full_digestion(protein.origin, protein.enzyme)
     full_digestion_mass = map(seq_id) do id
@@ -122,9 +104,8 @@ function digest!(protein::Protein, n_miss::Int, enzyme::String = "")
     n_miss += 1
     n_pep = round(Int, (2 * n_seq - n_miss + 1) * n_miss / 2) 
     mods = Dict{String, Vector{Int}}()
-    modification = Vector{Dict{String, Vector{Int}}}(undef, n_seq)
-    for i in eachindex(modification)
-        modification[i] = deepcopy(mods)
+    modification = map(1:n_seq) do _
+        deepcopy(mods)
     end
 
     # If modification had been done, add mass to each peptides

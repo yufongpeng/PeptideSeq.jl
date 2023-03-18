@@ -7,11 +7,7 @@ Ionize the peptides as the `adducts`.
 Available adducts are "[M]", "[M+H]+", "[M+2H]2+", "[M-H]-", "[M-2H]2-".
 """
 function ionize!(protein::Protein, adducts::String...)
-    if CONFIG["ACCURATE"]
-        adduct_fn = first(ADDUCT_FN)
-    else
-        adduct_fn = last(ADDUCT_FN_AVERAGE)
-    end
+    adduct_fn = (CONFIG["ACCURATE"] ? first : last)(ADDUCT_FN)
     peps = Vector{Peptide}(undef, length(protein.peptides) * length(adducts))
     i = 1
     for pep in protein.peptides
@@ -39,17 +35,11 @@ Fragmentation of a peptide.
 `charge_state` determines the number of charges on the fragments. It can be a vector containing integers or a symbol. The default is `:auto` which means that doulbly charged fragments will be included for fragments containing more than 5 amino acids.
 """
 function fragmentation(peptide::Peptide; ion_type = [:b, :y], charge_state = :auto)
-    if CONFIG["ACCURATE"]
-        aa_ms = first(AA_MS)
-        add_ms = first(ADD_MS)
-        modification_ms = first(MODIFICATION_MS)
-        adduct_fn = first(ADDUCT_FN)
-    else
-        aa_ms = last(AA_MS)
-        add_ms = last(ADD_MS)
-        modification_ms = last(MODIFICATION_MS)
-        adduct_fn = last(ADDUCT_FN_AVERAGE)
-    end
+    fn = CONFIG["ACCURATE"] ? first : last
+    aa_ms = fn(AA_MS)
+    add_ms = fn(ADD_MS)
+    modification_ms = fn(MODIFICATION_MS)
+    adduct_fn = fn(ADDUCT_FN)
 
     neutral_fragments = Dict{Symbol, Vector{Float64}}()
     seq_mass = _modified_mass(peptide, aa_ms, modification_ms)
@@ -76,15 +66,13 @@ function fragmentation(peptide::Peptide; ion_type = [:b, :y], charge_state = :au
     end
 
     _, precursor_charge_state = match(r"(\[.*\])(.*)", first(peptide.adduct))
-
-
     Fragments(peptide, last(peptide.adduct)(peptide.mass), _charge_fragments(neutral_fragments, charge_state, precursor_charge_state, adduct_fn))
 end
 
 function _charge_fragments(neutral_fragments::Dict{Symbol, Vector{Float64}}, charge_state, precursor_charge_state, adduct_fn)
     charge, ion_mode = match(r"(\d*)([+, -])", precursor_charge_state)
-    charge = charge == "" ? 1 : parse(Int, charge)
-    @assert maximum(collect(charge_state)) <= charge "Fragments can not have more charges than precursor"
+    maxcharge = charge == "" ? 1 : parse(Int, charge)
+    maximum(collect(charge_state)) > maxcharge && throw(ArgumentError("Fragments can not have more charges than precursor; try differnt `charge_state"))
     ion_type = collect(keys(neutral_fragments))
     sort!(ion_type, by = x -> findfirst(==(x), [:a, :x, :b, :y, :c, :z]))
     n = length(ion_type) * length(neutral_fragments[ion_type[1]]) * length(charge_state)
@@ -92,8 +80,8 @@ function _charge_fragments(neutral_fragments::Dict{Symbol, Vector{Float64}}, cha
     type = Vector{String}(undef, n)
     id = 1
     for ion in ion_type 
-        for charge in charge_state 
-            charge = charge == 1 ? "" : "$charge"
+        for ncharge in charge_state 
+            charge = ncharge == 1 ? "" : "$ncharge"
             adduct = "[M$(ion_mode)$(charge)H]$(charge)$(ion_mode)"
             charge = UPPER_INDEX[charge * ion_mode]
             for (i, v) in enumerate(neutral_fragments[ion])
@@ -107,17 +95,15 @@ function _charge_fragments(neutral_fragments::Dict{Symbol, Vector{Float64}}, cha
 end
 
 function _charge_fragments(neutral_fragments::Dict{Symbol, Vector{Float64}}, charge_state::Symbol, precursor_charge_state, adduct_fn)
-    charge, ion_mode = match(r"(\d*)([+, -])", precursor_charge_state)
-    charge = charge == "" ? 1 : parse(Int, charge)
+    scharge, ion_mode = match(r"(\d*)([+, -])", precursor_charge_state)
+    maxcharge = scharge == "" ? 1 : parse(Int, scharge)
     ion_type = collect(keys(neutral_fragments))
     sort!(ion_type, by = x -> findfirst(==(x), [:a, :x, :b, :y, :c, :z]))
     n_seq = length(neutral_fragments[ion_type[1]]) 
-    n = length(ion_type) * (n_seq + max(n_seq - 5, 0) * (charge - 1))
+    n = length(ion_type) * (n_seq + max(n_seq - 5, 0) * (maxcharge - 1))
     mass = Vector{Float64}(undef, n)
     type = Vector{String}(undef, n)
-    if charge_state != :auto
-        return
-    end
+    charge_state == :auto || return
     id = 1
     for ion in ion_type
         charges = [""]
@@ -129,7 +115,7 @@ function _charge_fragments(neutral_fragments::Dict{Symbol, Vector{Float64}}, cha
                 mass[id] = adduct_fn[adduct](v)
                 id += 1
             end
-            i == 5 && (charge - 1) > 0 && push!(charges, "2")
+            i == 5 && maxcharge > 1 && push!(charges, "2")
         end
     end
     (type = type, mass = mass)
@@ -147,26 +133,9 @@ function _modified_mass(peptide::Peptide, aa_ms, modification_ms)
     seq_mass
 end
 
-function a_ion(seq_mass, add_ms)
-    accumulate(+, seq_mass)[1:end - 1] .- add_ms["CO"]
-end
-
-function b_ion(seq_mass, add_ms)
-    accumulate(+, seq_mass)[1:end - 1]
-end
-
-function c_ion(seq_mass, add_ms)
-    accumulate(+, seq_mass)[1:end - 1] .+ add_ms["NH3"]
-end
-
-function x_ion(seq_mass, add_ms)
-    @. accumulate(+, reverse(seq_mass))[1:end - 1] + add_ms["CO"] - 2 * h_ms + add_ms["DI"]
-end
-
-function y_ion(seq_mass, add_ms)
-    accumulate(+, reverse(seq_mass))[1:end - 1] .+ add_ms["DI"]
-end
-
-function z_ion(seq_mass, add_ms)
-    @. accumulate(+, seq_mass)[1:end - 1] - add_ms["NH3"] + add_ms["DI"]
-end
+a_ion(seq_mass, add_ms) = accumulate(+, seq_mass)[1:end - 1] .- add_ms["CO"]
+b_ion(seq_mass, add_ms) = accumulate(+, seq_mass)[1:end - 1]
+c_ion(seq_mass, add_ms) = accumulate(+, seq_mass)[1:end - 1] .+ add_ms["NH3"]
+x_ion(seq_mass, add_ms) = @. accumulate(+, reverse(seq_mass))[1:end - 1] + add_ms["CO"] - 2 * h_ms + add_ms["DI"]
+y_ion(seq_mass, add_ms) = accumulate(+, reverse(seq_mass))[1:end - 1] .+ add_ms["DI"]
+z_ion(seq_mass, add_ms) = @. accumulate(+, seq_mass)[1:end - 1] - add_ms["NH3"] + add_ms["DI"]
