@@ -27,8 +27,28 @@ function add_modification!(source)
     end
 end
 
-function read_msdial(source)
-    return
+"""
+    read_msdial(source; delim = "\t")
+
+Read alignment file exported from MSDIAL as `Table`. 
+"""
+function read_msdial(source; delim = "\t")
+    col = ["Alignment ID", "Average Rt(min)", "Average Mz", "Metabolite name", "Adduct type", "MS/MS spectrum"]
+    it = eachline(source)
+    for _ in 1:4
+        iterate(it)
+    end
+    id = in.(split(iterate(it)[1], delim), Ref(col))
+    df = CSV.read(source, Table; delim, header = 5, select = id)
+    msms = map(df.var"MS/MS spectrum") do s
+        s == "null" && return Float64[;]
+        mapreduce(vcat, split(s, " ")) do x
+            y = split(x, ":")
+            (isempty(y) || length(y) == 1) && return [0.0 0.0;]
+            transpose(parse.(Float64, y))
+        end
+    end
+    Table(df; var"MS/MS spectrum" = msms)
 end
 
 # Custom display
@@ -58,7 +78,7 @@ function Base.show(io::IO, protein::Protein)
             Modification        = display_modification(pep.modification; position = true)) for pep in protein.peptides]
     pretty_table(io, dt, title = "Peptides: ", 
                 header = collect(propertynames(dt[1])), 
-                header_alignment = :L, 
+                header_alignment = :c, 
                 alignment=[:r, :r, :r, :l, :r, :l])
 end
 

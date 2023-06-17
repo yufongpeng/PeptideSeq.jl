@@ -29,6 +29,7 @@ end
 
 """
     fragmentation(peptide; ion_type = [:b, :y], charge_state = :auto)
+    fragmentation(protein::Protein, id::Int; kwargs...)
 
 Fragmentation of a peptide.
 `ion_type` is the type of fragments. It can be an vector containing :a, :b, :c, :x, :y, :z. The default is [:b, :c] which are major fragments in CID or HCD.
@@ -68,6 +69,8 @@ function fragmentation(peptide::Peptide; ion_type = [:b, :y], charge_state = :au
     _, precursor_charge_state = match(r"(\[.*\])(.*)", first(peptide.adduct))
     Fragments(peptide, last(peptide.adduct)(peptide.mass), _charge_fragments(neutral_fragments, charge_state, precursor_charge_state, adduct_fn))
 end
+
+fragmentation(protein::Protein, id::Int; kwargs...) = fragmentation(protein.peptides[id]; kwargs...)
 
 function _charge_fragments(neutral_fragments::Dict{Symbol, Vector{Float64}}, charge_state, precursor_charge_state, adduct_fn)
     charge, ion_mode = match(r"(\d*)([+, -])", precursor_charge_state)
@@ -136,6 +139,74 @@ end
 a_ion(seq_mass, add_ms) = accumulate(+, seq_mass)[1:end - 1] .- add_ms["CO"]
 b_ion(seq_mass, add_ms) = accumulate(+, seq_mass)[1:end - 1]
 c_ion(seq_mass, add_ms) = accumulate(+, seq_mass)[1:end - 1] .+ add_ms["NH3"]
-x_ion(seq_mass, add_ms) = @. accumulate(+, reverse(seq_mass))[1:end - 1] + add_ms["CO"] - 2 * h_ms + add_ms["DI"]
+x_ion(seq_mass, add_ms) = accumulate(+, reverse(seq_mass))[1:end - 1] .+ add_ms["CO"] .- 2 .* h_ms .+ add_ms["DI"]
 y_ion(seq_mass, add_ms) = accumulate(+, reverse(seq_mass))[1:end - 1] .+ add_ms["DI"]
-z_ion(seq_mass, add_ms) = @. accumulate(+, seq_mass)[1:end - 1] - add_ms["NH3"] + add_ms["DI"]
+z_ion(seq_mass, add_ms) = accumulate(+, seq_mass)[1:end - 1] .- add_ms["NH3"] .+ add_ms["DI"]
+
+function sc_pctms2(ref_ms1, data_ms1, ref_ms2, ref_matched, data_ms2, data_matched)
+    max(-log(10, abs(ref_ms1 - data_ms1)), 4) / 100 + length(ref_matched) / length(ref_ms2.type)
+end
+
+function sc_nms2(ref_ms1, data_ms1, ref_ms2, ref_matched, data_ms2, data_matched)
+    max(-log(10, abs(ref_ms1 - data_ms1)), 4) / 10 + length(ref_matched)
+end
+
+function sc_propms2(ref_ms1, data_ms1, ref_ms2, ref_matched, data_ms2, data_matched)
+    max(-log(10, abs(ref_ms1 - data_ms1)), 4) / 100 + sum(data_ms2[data_matched, 2]) / sum(data_ms2[:, 2])
+end
+
+"""
+    find_peptides(data::Table, db::Vector{Fragments}; ms1_tol = 0.01, ms2_tol = 0.02, min_signal = 500, score_fn = sc_propms2)
+
+Match `data` against `db`.
+* `ms1_tol`: maximum deviation of ms1.
+* `ms2_tol`: maximum deviation of ms2.
+* `min_signal`: minmum ms2 signal to be counted as a valid fragments.
+* `score_fn`: function for determining score.
+"""
+function find_peptides(data::Table, db::Vector{Fragments}; ms1_tol = 0.01, ms2_tol = 0.02, min_signal = 500, score_fn = sc_propms2)
+    peptide_matched = falses(size(data, 1))
+    peptide = Vector{Union{Fragments, Nothing}}(undef, size(data, 1))
+    fill!(peptide, nothing)
+    data_ms2_matched = Vector{Vector{Int}}(undef, size(data, 1))
+    ref_ms2_matched = Vector{Vector{Int}}(undef, size(data, 1))
+    scores = zeros(size(data, 1))
+    for (i, cpd) in enumerate(data)
+        for ref in db
+            abs(ref.precursor - cpd.var"Average Mz") > ms1_tol && continue
+            peptide_matched[i] = true
+            if isempty(cpd.var"MS/MS spectrum")
+                score = score_fn(ref.precursor, cpd.var"Average Mz", ref.fragments, Int[], cpd.var"MS/MS spectrum", Int[])
+                if score > scores[i]
+                    peptide[i] = ref
+                    data_ms2_matched[i] = Int[]
+                    ref_ms2_matched[i] = Int[]
+                    scores[i] = score
+                end
+                continue
+            end
+            _data_ms2_matched = Int[]
+            _ref_ms2_matched = Int[]
+            for j in eachindex(ref.fragments.type)
+                id = findall(x -> abs(x - ref.fragments.mass[j]) <= ms2_tol, cpd.var"MS/MS spectrum"[:, 1])
+                maximum(cpd.var"MS/MS spectrum"[id, 2]; init = 0) < min_signal && continue
+                union!(_data_ms2_matched, id)
+                push!(_ref_ms2_matched, j)
+            end
+            score = score_fn(ref.precursor, cpd.var"Average Mz", ref.fragments, _ref_ms2_matched, cpd.var"MS/MS spectrum", _data_ms2_matched)
+            if score > scores[i]
+                peptide[i] = ref
+                data_ms2_matched[i] = _data_ms2_matched
+                ref_ms2_matched[i] = _ref_ms2_matched
+                scores[i] = score
+            end
+        end
+        if !peptide_matched[i]
+            peptide[i] = nothing
+            data_ms2_matched[i] = Int[]
+            ref_ms2_matched[i] = Int[]
+            scores[i] = 0
+        end 
+    end
+    Table(data; var"Peptide Matched" = peptide_matched, Peptide = peptide, var"Data MS/MS ID" = data_ms2_matched, var"Ref MS/MS ID" = ref_ms2_matched, Score = scores)
+end

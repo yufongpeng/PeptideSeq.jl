@@ -1,9 +1,9 @@
 module PeptideSeq
-using IterTools,  PrettyTables
+using IterTools,  PrettyTables, TypedTables
 
 export Protein, Peptide, Fragments, 
 
-    digest!, modify!, ionize!, fragmentation,
+    digest!, modify!, ionize!, fragmentation, find_peptides, read_msdial,
 
     add_enzyme!, add_modification!,
 
