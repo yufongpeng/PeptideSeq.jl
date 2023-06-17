@@ -27,6 +27,6 @@ using Test
     @test findall(result.var"Peptide Matched") == [121, 155]
     @test result.Peptide[121] == db[2]
     @test result.Score[121] > 0.8
-    @test result.Peptide[155] == db[2]
+    @test result.Peptide[155] == db[1]
     @test result.Score[155] < 0.1
 end

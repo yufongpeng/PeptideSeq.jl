@@ -41,7 +41,7 @@ function read_msdial(source; delim = "\t")
     id = in.(split(iterate(it)[1], delim), Ref(col))
     df = CSV.read(source, Table; delim, header = 5, select = id)
     msms = map(df.var"MS/MS spectrum") do s
-        s == "null" && return Float64[;]
+        s == "null" && return Matrix{Float64}(undef, 0, 0)
         mapreduce(vcat, split(s, " ")) do x
             y = split(x, ":")
             (isempty(y) || length(y) == 1) && return [0.0 0.0;]
