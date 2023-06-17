@@ -16,9 +16,11 @@ function modify!(protein::Protein, modification::String...)
             if isa(loc, Regex)
                 append!(locs, locc.offset for locc in eachmatch(loc, protein.origin))
             elseif loc == "^"
+                push!(locs, 0)
                 push!(locs, 1)
             elseif loc == "\$"
                 push!(locs, length(protein.origin))
+                push!(locs, -1)
             else
                 append!(locs, findall(==(first(loc)), protein.origin))
             end
@@ -42,11 +44,11 @@ function _modify_mass!(protein::Protein, modification::String...)
     for (k, v) in protein.modification
         for (i, pep) in enumerate(protein.peptides)
             id = filter(in(v), pep.position)
-            in(0, v) && pushfirst!(id, 1)
-            in(-1, v) && push!(id, last(pep.position))
+            in(0, v) && !=(1, first(pep.position)) && pushfirst!(id, first(pep.position))
+            in(-1, v) && !=(length(protein.peptides), last(pep.position)) && push!(id, last(pep.position))
             isempty(id) && continue
             protein.peptides[i].modification[k] = sort!(union!(get(protein.peptides[i].modification, k, Int[]), id))
-            n = length(id)
+            n = length(protein.peptides[i].modification[k])
             protein.peptides[i].mass += n * modification_ms[k]
         end
     end
